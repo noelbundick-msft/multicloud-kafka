@@ -18,7 +18,12 @@ KafkaClient {
 EOF
 
 cat <<EOF > "${SCRIPT_DIR}/.brokerinfo"
-BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
 TOPIC=${TOPIC}
 PASSWORD=${PASSWORD}
+EOF
+
+cat <<EOF >"${SCRIPT_DIR}/broker.config"
+bootstrap.servers=${BOOTSTRAP_SERVER}
+security.protocol=SASL_SSL
+sasl.mechanism=PLAIN
 EOF

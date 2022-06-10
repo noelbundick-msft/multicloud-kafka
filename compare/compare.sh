@@ -7,6 +7,7 @@ LOG="${SCRIPT_DIR}/output.log"
 export KAFKA_BIN="${SCRIPT_DIR}/_kafka/bin"
 
 ACTION=""
+TEST="default"
 
 help()  {
   cat <<EOF
@@ -17,6 +18,7 @@ help()  {
 
   Optional arguments:
     --action            (Optional) Name of a script to run only that action. Standard actions: [deploy, test, teardown]
+    --test              (Optional) Name of a specific test case to run. Implies --action=test
 EOF
 }
 
@@ -29,6 +31,17 @@ while [[ $# -gt 0 ]]; do
       ;;
     --action)
       ACTION=$2
+      shift # past argument
+      shift # past value
+      ;;
+    -t|--test)
+      TEST=$2
+      if [ "${ACTION}" = "" ]; then
+        ACTION="test"
+      elif [ "${ACTION}" != "test" ]; then
+        echo "You can't specify --test with an --action != 'test'"
+        exit 1
+      fi
       shift # past argument
       shift # past value
       ;;
@@ -66,9 +79,15 @@ validate_args() {
     exit 1
   fi
 
-  BROKER_TEST_SCRIPT="${BROKER_DIR}/test.sh"
-  if [ ! -f "${BROKER_TEST_SCRIPT}" ]; then
-    echo "Missing broker test script: ${BROKER_TEST_SCRIPT}"
+  BROKER_TEST_RUNNER_SCRIPT="${BROKER_DIR}/runner.sh"
+  if [ ! -f "${BROKER_TEST_RUNNER_SCRIPT}" ]; then
+    echo "Missing broker test runner script: ${BROKER_TEST_RUNNER_SCRIPT}"
+    exit 1
+  fi
+
+  TEST_SCRIPT="${SCRIPT_DIR}/_tests/${TEST}.sh"
+  if [ ! -f "${TEST_SCRIPT}" ]; then
+    echo "Missing test script: ${TEST_SCRIPT}"
     exit 1
   fi
 
@@ -89,7 +108,7 @@ deploy_broker() {
 
 run_test() {
   echo "Running a test: ${BROKER}"
-  . "${BROKER_TEST_SCRIPT}" | tee -a "${LOG}"
+  . "${BROKER_TEST_RUNNER_SCRIPT}" "${TEST_SCRIPT}" | tee -a "${LOG}"
 }
 
 teardown_broker() {
@@ -98,13 +117,17 @@ teardown_broker() {
 }
 
 run_action() {
-  ACTION_SCRIPT="${BROKER_DIR}/${ACTION}.sh"
-  if [ ! -f "${ACTION_SCRIPT}" ]; then
-    echo "Missing broker action script: ${ACTION_SCRIPT}"
-    exit 1
-  fi
+  if [ "${ACTION}" == "test" ]; then
+    run_test
+  else
+    ACTION_SCRIPT="${BROKER_DIR}/${ACTION}.sh"
+    if [ ! -f "${ACTION_SCRIPT}" ]; then
+      echo "Missing broker action script: ${ACTION_SCRIPT}"
+      exit 1
+    fi
 
-  . "${ACTION_SCRIPT}" | tee -a "${LOG}"
+    . "${ACTION_SCRIPT}" | tee -a "${LOG}"
+  fi
 }
 
 validate_args

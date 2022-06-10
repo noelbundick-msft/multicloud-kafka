@@ -1,1 +1,11 @@
+# kafka tools are extracted here
 _kafka
+
+# file for specific providers to use and use in runner.sh
+.brokerinfo
+
+# don't save auth
+jaas.conf
+
+# test cases will consume baseline broker settings from broker.config
+broker.config
