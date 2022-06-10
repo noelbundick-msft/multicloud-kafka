@@ -13,8 +13,9 @@ resource "azurerm_eventhub_namespace" "default" {
   name                = "kafka-${random_string.suffix.result}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  sku                 = "Standard"
-  capacity            = 1
+  sku                 = var.sku
+  capacity            = var.scale
+  zone_redundant      = var.sku == "Premium" ? true : false
 }
 
 resource "azurerm_eventhub" "topic1" {
@@ -34,6 +35,6 @@ output "topic" {
 }
 
 output "primary_connection_string" {
-  value = azurerm_eventhub_namespace.default.default_primary_connection_string
+  value     = azurerm_eventhub_namespace.default.default_primary_connection_string
   sensitive = true
 }

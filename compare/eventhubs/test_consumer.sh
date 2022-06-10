@@ -13,6 +13,7 @@ security.protocol=SASL_SSL
 sasl.mechanism=PLAIN
 EOF
 
+# TODO: fix messages, my EH has 1 TU
 "${KAFKA_BIN}/kafka-consumer-perf-test.sh" --print-metrics \
   --bootstrap-server "${BOOTSTRAP_SERVER}" \
   --consumer.config "${SCRIPT_DIR}/consumer.config" \

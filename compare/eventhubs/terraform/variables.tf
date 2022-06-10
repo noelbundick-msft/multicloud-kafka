@@ -14,3 +14,15 @@ variable partitions {
   type = number
   default = 16
 }
+
+variable sku {
+  type = string
+  default = "Standard"
+}
+
+# TU for Standard EH
+# PU for Premium EH
+variable scale {
+  type = number
+  default = 1
+}
