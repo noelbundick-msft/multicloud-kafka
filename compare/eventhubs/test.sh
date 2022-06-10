@@ -10,7 +10,7 @@ TOPIC=$(grep -oP 'TOPIC=\K.*' "${BROKERINFO}")
 
 "${KAFKA_BIN}/kafka-producer-perf-test.sh" --print-metrics \
   --topic "${TOPIC}" \
-  --num-records 1000 \
+  --num-records 1000000 \
   --throughput -1 \
   --record-size 1024 \
   --producer-props "bootstrap.servers=${BOOTSTRAP_SERVER}" \

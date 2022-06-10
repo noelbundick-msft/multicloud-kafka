@@ -9,13 +9,13 @@ resource "azurerm_resource_group" "rg" {
   location = var.region
 }
 
-resource "random_password" "ambari" {
+resource "random_password" "default" {
   length = 16
 }
 
 # `terraform output -o json` will unicode escape special characters, so it can't be used as-is
-output ambari_password {
-  value     = random_password.ambari.result
+output "password" {
+  value     = random_password.default.result
   sensitive = true
 }
 
@@ -34,11 +34,12 @@ resource "azurerm_storage_container" "hdinsight" {
 }
 
 resource "azurerm_hdinsight_kafka_cluster" "kafka" {
-  name                          = "kafka-${random_string.suffix.result}"
-  resource_group_name           = azurerm_resource_group.rg.name
-  location                      = azurerm_resource_group.rg.location
-  # cluster_version               = "4.0" # must change. Terraform will delete the cluster
-  cluster_version = "5.0.3000.0"
+  name                = "kafka-${random_string.suffix.result}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  cluster_version     = var.cluster_version
+  # cluster_version = "4.0"
+  # cluster_version = "5.0.3000.0"  # The RP returns a different version. Terraform will delete the cluster if not addressed on deployments 2 & beyond
 
   tier                          = "Standard"
   tls_min_version               = "1.2"
@@ -49,8 +50,8 @@ resource "azurerm_hdinsight_kafka_cluster" "kafka" {
   }
 
   gateway {
-    username = "ambari"
-    password = random_password.ambari.result
+    username = "azureuser"
+    password = random_password.default.result
   }
 
   storage_account {
@@ -69,13 +70,13 @@ resource "azurerm_hdinsight_kafka_cluster" "kafka" {
     head_node {
       vm_size  = "Standard_DS3_V2"
       username = "azureuser"
-      ssh_keys = ["${var.ssh_public_key}"]
+      password = random_password.default.result
     }
 
     worker_node {
       vm_size                  = var.broker_size
       username                 = "azureuser"
-      ssh_keys                 = ["${var.ssh_public_key}"]
+      password                 = random_password.default.result
       number_of_disks_per_node = var.disks_per_node
       target_instance_count    = var.brokers
     }
@@ -83,7 +84,7 @@ resource "azurerm_hdinsight_kafka_cluster" "kafka" {
     zookeeper_node {
       vm_size  = var.zookeeper_size
       username = "azureuser"
-      ssh_keys = ["${var.ssh_public_key}"]
+      password = random_password.default.result
     }
   }
 }
