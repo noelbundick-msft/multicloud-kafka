@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 "${KAFKA_BIN}/kafka-producer-perf-test.sh" --print-metrics \
   --topic topic1 \

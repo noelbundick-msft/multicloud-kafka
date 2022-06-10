@@ -2,6 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+LOG="${SCRIPT_DIR}/output.log"
+
 export KAFKA_BIN="${SCRIPT_DIR}/_kafka/bin"
 
 ACTION=""
@@ -82,17 +84,17 @@ validate_args() {
 
 deploy_broker() {
   echo "Deploying broker: ${BROKER}"
-  . "${BROKER_DEPLOY_SCRIPT}"
+  . "${BROKER_DEPLOY_SCRIPT}" | tee -a "${LOG}"
 }
 
 run_test() {
   echo "Running a test: ${BROKER}"
-  . "${BROKER_TEST_SCRIPT}"
+  . "${BROKER_TEST_SCRIPT}" | tee -a "${LOG}"
 }
 
 teardown_broker() {
   echo "Tearing down: ${BROKER_TEARDOWN_SCRIPT}"
-  . "${BROKER_TEARDOWN_SCRIPT}"
+  . "${BROKER_TEARDOWN_SCRIPT}" | tee -a "${LOG}"
 }
 
 run_action() {
@@ -102,10 +104,13 @@ run_action() {
     exit 1
   fi
 
-  . "${ACTION_SCRIPT}"
+  . "${ACTION_SCRIPT}" | tee -a "${LOG}"
 }
 
 validate_args
+
+# clear old logs
+rm "${LOG}"
 
 if [ ! -z "${ACTION}" ]; then
   run_action
