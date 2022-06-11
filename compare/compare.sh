@@ -5,6 +5,13 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && 
 LOG="${SCRIPT_DIR}/output.log"
 
 export KAFKA_BIN="${SCRIPT_DIR}/_kafka/bin"
+if [ ! -d "${KAFKA_BIN}" ]; then
+  mkdir -p "${KAFKA_BIN}"
+  pushd "${KAFKA_BIN}/../"
+  curl -L 'https://dlcdn.apache.org/kafka/3.2.0/kafka_2.13-3.2.0.tgz' -o kafka.tgz
+  tar xvf kafka.tgz --strip-components=1
+  popd
+fi
 
 ACTION=""
 TEST="default"

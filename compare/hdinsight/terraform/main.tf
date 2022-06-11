@@ -13,12 +13,6 @@ resource "random_password" "default" {
   length = 16
 }
 
-# `terraform output -o json` will unicode escape special characters, so it can't be used as-is
-output "password" {
-  value     = random_password.default.result
-  sensitive = true
-}
-
 resource "azurerm_storage_account" "hdinsight" {
   name                     = "hdi${random_string.suffix.result}"
   resource_group_name      = azurerm_resource_group.rg.name
@@ -33,62 +27,109 @@ resource "azurerm_storage_container" "hdinsight" {
   container_access_type = "private"
 }
 
-resource "azurerm_hdinsight_kafka_cluster" "kafka" {
-  name                = "kafka-${random_string.suffix.result}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  cluster_version     = var.cluster_version
-  # cluster_version = "4.0"
-  # cluster_version = "5.0.3000.0"  # The RP returns a different version. Terraform will delete the cluster if not addressed on deployments 2 & beyond
-
-  tier                          = "Standard"
-  tls_min_version               = "1.2"
-  encryption_in_transit_enabled = true
-
-  component_version {
-    kafka = "2.4"
-  }
-
-  gateway {
-    username = "azureuser"
-    password = random_password.default.result
-  }
-
-  storage_account {
-    storage_container_id = azurerm_storage_container.hdinsight.id
-    storage_account_key  = azurerm_storage_account.hdinsight.primary_access_key
-    is_default           = true
-  }
-
-  # seems broken - can't deploy without this
-  # rest_proxy {
-  #   security_group_id = "10ba614d-8a77-4cc1-b081-c240b4026a3a"
-  #   security_group_name = "Noel Bundick FTE"
-  # }
-
-  roles {
-    head_node {
-      vm_size  = "Standard_DS3_V2"
-      username = "azureuser"
-      password = random_password.default.result
+resource "azapi_resource" "hdinsight_kafka" {
+  type      = "Microsoft.HDInsight/clusters@2021-06-01"
+  name      = "kafka-${random_string.suffix.result}"
+  parent_id = azurerm_resource_group.rg.id
+  location  = azurerm_resource_group.rg.location
+  body = jsonencode({
+    properties = {
+      clusterVersion = "4.0"
+      osType         = "Linux"
+      tier           = "Standard"
+      clusterDefinition = {
+        kind = "KAFKA"
+        componentVersion = {
+          Kafka = "2.4"
+        }
+        configurations = {
+          gateway = {
+            "restAuthCredential.isEnabled" = true,
+            "restAuthCredential.username"  = "ambari"
+            "restAuthCredential.password"  = random_password.default.result
+          }
+        }
+      }
+      storageProfile = {
+        storageaccounts = [
+          {
+            name      = replace(replace(azurerm_storage_account.hdinsight.primary_blob_endpoint, "https://", ""), "/", "")
+            isDefault = true
+            container = azurerm_storage_container.hdinsight.name
+            key       = azurerm_storage_account.hdinsight.primary_access_key
+          }
+        ]
+      }
+      computeProfile = {
+        roles = [
+          {
+            name                = "headnode"
+            minInstanceCount    = 1
+            targetInstanceCount = 2
+            hardwareProfile = {
+              vmSize = "Standard_E4_V3"
+            }
+            osProfile = {
+              linuxOperatingSystemProfile = {
+                username = "azureuser"
+                password = random_password.default.result
+              }
+            }
+          },
+          {
+            name                = "workernode"
+            targetInstanceCount = 4
+            hardwareProfile = {
+              vmSize = "Standard_E4_V3"
+            }
+            osProfile = {
+              linuxOperatingSystemProfile = {
+                username = "azureuser"
+                password = random_password.default.result
+              }
+            }
+            dataDisksGroups = [
+              {
+                disksPerNode = 2
+              }
+            ]
+          },
+          {
+            name                = "zookeepernode"
+            minInstanceCount    = 1
+            targetInstanceCount = 3
+            hardwareProfile = {
+              vmSize = "Standard_A4_V2"
+            }
+            osProfile = {
+              linuxOperatingSystemProfile = {
+                username = "azureuser"
+                password = random_password.default.result
+              }
+            }
+          }
+        ]
+      }
+      minSupportedTlsVersion = "1.2"
+      encryptionInTransitProperties = {
+        isEncryptionInTransitEnabled = true
+      }
     }
-
-    worker_node {
-      vm_size                  = var.broker_size
-      username                 = "azureuser"
-      password                 = random_password.default.result
-      number_of_disks_per_node = var.disks_per_node
-      target_instance_count    = var.brokers
-    }
-
-    zookeeper_node {
-      vm_size  = var.zookeeper_size
-      username = "azureuser"
-      password = random_password.default.result
-    }
-  }
+  })
 }
 
+data "azurerm_hdinsight_cluster" "hdinsight_kafka" {
+  name                = azapi_resource.hdinsight_kafka.name
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+
 output "ssh_endpoint" {
-  value = azurerm_hdinsight_kafka_cluster.kafka.ssh_endpoint
+  value = data.azurerm_hdinsight_cluster.hdinsight_kafka.ssh_endpoint
+}
+
+# `terraform output -o json` will unicode escape special characters, so it can't be used as-is
+output "password" {
+  value     = random_password.default.result
+  sensitive = true
 }
